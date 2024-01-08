@@ -1,0 +1,210 @@
+<html>
+    <head>
+        <link href="https://fonts.googleapis.com/css?family=Fira+Sans&display=swap" rel="stylesheet">
+        <link href="departure-board.css" rel="stylesheet">
+        <link href="styles.css" rel="stylesheet">        
+        <script src="https://cdn.jsdelivr.net/npm/dayjs@1/dayjs.min.js"></script>
+        <script>                       
+            function char(s){
+                if(s==="-"){
+                    return "dash";
+                }else if(s===" "){
+                    return "blank";
+                }else if(s===":"){
+                    return "colon";                
+                }else{
+                    return s.toUpperCase();
+                }
+            }
+
+            (async function(){
+
+                /*****************************************************************************
+                 * https://docs.google.com/spreadsheets/d/1DcwycGPJXV8ygR03Z-g49GMcpO_HLREsSS9OW7x57SU is the URL of your google sheet.  
+                 * Please note the end of the query has "/gviz/tq?tq=" which is what allows us to use the sheet as a datasource            
+                 * **************************************************************************/
+                let sheetURL="https://docs.google.com/spreadsheets/d/1DcwycGPJXV8ygR03Z-g49GMcpO_HLREsSS9OW7x57SU/gviz/tq?tq=";
+
+                /*****************************************************************************
+                 * These are the SQL type queries that pulls the data from the Google Sheet. 
+                 * The letter represent the columns of the sheets. 
+                 * **************************************************************************/
+                let simsQueries = [    
+                    "SELECT A, C, D, E WHERE B = DATE", // RB Jay
+                    "SELECT G, I, J, K WHERE H = DATE", // RB1 467
+                    "SELECT M, O, P, Q WHERE N = DATE", // RB2 663
+                    "SELECT S, U, V, W WHERE T = DATE" // Fly PFC
+                ];
+
+                /*****************************************************************************
+                 * This is where you can set the data to pull data for. It is set to use 
+                 * TODAY as the date to display. 
+                 * **************************************************************************/
+                let dateToDisplay="2023-10-24"// dayjs().format("YYYY-MM-DD"); //"2023-10-24"
+
+
+                /*****************************************************************************
+                 * Loop through all of the simQueries and put their data in a variable called "simData"
+                 * **************************************************************************/
+                let simData=[];
+                let simHtml="";
+                for(let simQuery of simsQueries){    
+                    let response = await fetch(sheetURL+simQuery+` '${dateToDisplay}'`);
+                    if(response.status===200){        
+                        let r = await response.text();                                                        
+                        r = JSON.parse(r.substring(r.indexOf("(")+1, r.lastIndexOf(")")));                        
+                        if(r && r.table && r.table.rows){                            
+                            simData=simData.concat(r.table.rows)
+                        }
+                    }                                
+                }
+
+                /*****************************************************************************
+                 * BOARD WIDTH
+                 * You can either hardcode the width to fit the screen you are displaying this on. 
+                 * Or, uncomment the block of code below and it will find the longest text 
+                 * string and adjust the width to fit. 
+                 * **************************************************************************/
+                let maxRowLength = 40;
+                /*simData.forEach(function(row){
+                    let rowLength = (row.c[1].v+row.c[2].v+row.c[3].v).length;
+                    if(rowLength>maxRowLength){
+                        maxRowLength = rowLength;
+                    }
+                })*/
+
+
+                renderSims();
+                
+                
+                function renderSims(){
+                    let simNameUsed=[];
+
+                    // --- Loop through each sims data -----------------------------------
+                    simData.forEach(function(row){   
+                        let rowLength = (row.c[1].v+row.c[2].v+row.c[3].v).length; // find out how long this row is
+                                                                                  
+                                let rowHtml='';  
+                                
+                                /* -----------------------------------------------------------
+                                    This block of code inserts a blank row at the
+                                    bottom of each section. 
+                                -------------------------------------------------------------*/
+                                if(row.c[0] && simNameUsed.length>0 && simNameUsed.indexOf(row.c[0].v)===-1){                                    
+                                    rowHtml+=`<div class="departure-board">`;  
+                                        rowHtml+=`<span class="letter letter-blank brdrLeft"></span>`;                                        
+                                        for(let i=0; i<(maxRowLength+1); i++){
+                                            rowHtml+=`<span class="letter letter-blank"></span>`;
+                                        }
+                                        rowHtml+=`<span class="letter letter-blank brdrRight"></span>`;
+                                    rowHtml+='</div>';
+                                }
+
+                                /* -----------------------------------------------------------
+                                    Display the SIM name and insert an empty row above it
+                                -------------------------------------------------------------*/
+
+                                if(row.c[0] && simNameUsed.indexOf(row.c[0].v)===-1){
+                                    rowHtml+=`<div class="departure-board">`;  
+                                        rowHtml+=`<span class="letter letter-blank brdrLeft brdrTop"></span>`;                                        
+                                        for(let i=0; i<(maxRowLength+1); i++){
+                                            rowHtml+=`<span class="letter letter-blank brdrTop"></span>`;
+                                        }
+                                        rowHtml+=`<span class="letter letter-blank brdrRight brdrTop"></span>`;
+                                    rowHtml+='</div>';
+                                    rowHtml+=`<div class="departure-board">`;  
+                                        rowHtml+=`<span class="letter letter-blank brdrLeft"></span>`;  
+                                        
+                                        //SIM NAME ----------------------------------------                                    
+                                        row.c[0].v.toString().trim().split("").forEach(function(d){
+                                            rowHtml+=`<span class="letter letter-${char(d)}"></span>`
+                                        });                                         
+                                        for(let i=0; i<(maxRowLength-(row.c[0].v.length)); i++){
+                                            rowHtml+=`<span class="letter letter-blank"></span>`;
+                                        }
+                                        rowHtml+=`<span class="letter letter-blank"></span>`;
+                                        rowHtml+=`<span class="letter letter-blank brdrRight"></span>`;
+                                    rowHtml+=`</div>`  
+                                    simNameUsed.push(row.c[0].v)
+                                   
+                                }
+                                                                                                                                                                                                      
+                                rowHtml+=`<div class="departure-board">`                                    
+                                rowHtml+=`<span class="letter letter-blank brdrLeft"></span>`;
+
+                                /* -----------------------------------------------------------
+                                    TIME
+                                -------------------------------------------------------------*/   
+                                if(row.c[0]){                                
+                                    row.c[1].v.trim().replace(/[:\s]/ig,"").split("").forEach(function(d){
+                                        rowHtml+=`<span class="letter letter-${char(d)}"></span>`
+                                    });
+                                }
+
+                                /* -----------------------------------------------------------
+                                    The extra "space dash space" that you requested between the time and flight number
+                                -------------------------------------------------------------*/
+
+                                rowHtml+=`<span class="letter letter-blank"></span>`;
+                                rowHtml+=`<span class="letter letter-dash"></span>`;
+                                rowHtml+=`<span class="letter letter-blank"></span>`;
+
+                               /* -----------------------------------------------------------
+                                    FLIGHT
+                                -------------------------------------------------------------*/      
+                                if(row.c[0]){                               
+                                    row.c[2].v.trim().split("").forEach(function(d){
+                                        rowHtml+=`<span class="letter letter-${char(d)}"></span>`
+                                    });
+                                }
+
+                                rowHtml+=`<span class="letter letter-blank"></span>`;
+                                rowHtml+=`<span class="letter letter-blank"></span>`;
+
+                                /* -----------------------------------------------------------
+                                    STUDENT
+                                -------------------------------------------------------------*/   
+                                if(row.c[0]){                               
+                                    row.c[3].v.trim().split("").forEach(function(d){
+                                        rowHtml+=`<span class="letter letter-${char(d)}"></span>`
+                                    });
+                                }
+                                
+                                /* -----------------------------------------------------------
+                                    Pad rows that are shorter than the maxLength with empty
+                                    spaces giving a uniform display.
+                                -------------------------------------------------------------*/
+                                for(let i=0; i<((maxRowLength-rowLength)); i++){
+                                    rowHtml+=`<span class="letter letter-blank"></span>`;
+                                }
+                                rowHtml+=`<span class="letter letter-blank brdrRight"></span>`;
+
+                                rowHtml+=`</div>`;                                
+                                
+                                simHtml += rowHtml;
+                               
+                    });
+
+                    /* -----------------------------------------------------------
+                    Create an empty bottom row with a boarder
+                    -------------------------------------------------------------*/
+                    simHtml+=`<div class="departure-board">`;  
+                        simHtml+=`<span class="letter letter-blank brdrLeft brdrBottom"></span>`;
+                        for(let i=0; i<=maxRowLength; i++){
+                            simHtml+=`<span class="letter letter-blank brdrBottom"></span>`;
+                        }
+                        simHtml+=`<span class="letter letter-blank brdrRight brdrBottom"></span>`;
+                    simHtml+='</div>';
+
+                    document.getElementById("departureBoard").innerHTML = simHtml; 
+                }
+
+                                            
+            })()
+
+        </script>
+    </head>
+    <body>
+        <div id="departureBoard"></div>
+    </body>
+</html>
