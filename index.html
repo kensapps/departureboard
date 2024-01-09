@@ -40,7 +40,7 @@
                  * This is where you can set the data to pull data for. It is set to use 
                  * TODAY as the date to display. 
                  * **************************************************************************/
-                let dateToDisplay="2023-10-24"// dayjs().format("YYYY-MM-DD"); //"2023-10-24"
+                let dateToDisplay=dayjs().format("YYYY-MM-DD"); //"2023-10-24"
 
 
                 /*****************************************************************************
@@ -82,7 +82,7 @@
 
                     // --- Loop through each sims data -----------------------------------
                     simData.forEach(function(row){   
-                        let rowLength = (row.c[1].v+row.c[2].v+row.c[3].v).length; // find out how long this row is
+                        let rowLength = (row.c[1].v.trim()+row.c[2].v.trim()+row.c[3].v.trim()).length; // find out how long this row is                        
                                                                                   
                                 let rowHtml='';  
                                 
